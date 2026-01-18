@@ -282,11 +282,11 @@ def iniciar_web(data_provider):
 
     @app.route("/img/<int:i>")
     def img(i):
-        return send_file(BytesIO(state["imagenes_bin"][i]), mimetype="image/jpeg")
+        return send_file(
+            BytesIO(state["imagenes_bin"][i]),
+            mimetype="image/jpeg"
+        )
 
-    app.run(
-        host="0.0.0.0",  # aceptar conexiones externas
-        port=8083,  # puerto libre
-        debug=False
-    )
+    # 🔥 ESTO ES CLAVE PARA GUNICORN
+    return app
 
