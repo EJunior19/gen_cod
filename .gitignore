@@ -1,0 +1,15 @@
+# Entornos
+.env
+venv/
+__pycache__/
+
+# Salida generada
+output/
+
+# Python
+*.pyc
+*.log
+
+# Sistema
+.DS_Store
+Thumbs.db
