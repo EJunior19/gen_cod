@@ -45,5 +45,5 @@ def build_data():
     return productos_finales, ""
 
 
-if __name__ == "__main__":
-    iniciar_web(build_data)
+# 🔥 ESTA LÍNEA ES LA CLAVE PARA GUNICORN
+app = iniciar_web(build_data)
