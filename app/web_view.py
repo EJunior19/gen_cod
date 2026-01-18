@@ -3,7 +3,7 @@ import requests
 from io import BytesIO
 import time
 
-# ⏱ intervalo en segundos (10 minutos)
+# ⏱ intervalo de actualización automática (10 minutos)
 INTERVALO = 600
 
 def iniciar_web(data_provider):
@@ -188,14 +188,11 @@ def iniciar_web(data_provider):
             function updateCountdown(){
                 const now = Math.floor(Date.now() / 1000);
                 let restante = (lastUpdate + intervalo) - now;
-
                 if (restante < 0) restante = 0;
 
                 const min = Math.floor(restante / 60);
                 const sec = restante % 60;
-
-                document.getElementById("countdown").innerText =
-                    min + "m " + sec + "s";
+                document.getElementById("countdown").innerText = min + "m " + sec + "s";
             }
 
             setInterval(updateCountdown, 1000);
@@ -231,7 +228,6 @@ def iniciar_web(data_provider):
                             showToast("No se pudo copiar la imagen");
                             return;
                         }
-
                         try {
                             await navigator.clipboard.write([
                                 new ClipboardItem({ "image/png": blob })
@@ -264,7 +260,7 @@ def iniciar_web(data_provider):
         state["last_update"] = int(time.time())
 
         for p in productos:
-            r = requests.get(p["imagen"])
+            r = requests.get(p["imagen"], timeout=10)
             state["imagenes_bin"].append(r.content)
 
     @app.route("/")
@@ -286,9 +282,6 @@ def iniciar_web(data_provider):
 
     @app.route("/img/<int:i>")
     def img(i):
-        return send_file(
-            BytesIO(state["imagenes_bin"][i]),
-            mimetype="image/jpeg"
-        )
+        return send_file(BytesIO(state["imagenes_bin"][i]), mimetype="image/jpeg")
 
-    app.run(debug=False)
+    app.run(host="0.0.0.0", port=5000, debug=False)
