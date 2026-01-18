@@ -1,8 +1,13 @@
+import os
 from openai import OpenAI
 
-client = OpenAI()
-
 def generar_texto(nombre_original: str, precio: str):
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        raise RuntimeError("Falta OPENAI_API_KEY. Cargá .env en la raíz o exportá la variable.")
+
+    client = OpenAI(api_key=api_key)
+
     prompt = f"""
 Creá un mensaje listo para enviar por WhatsApp para este producto:
 
@@ -66,7 +71,7 @@ REGLAS OBLIGATORIAS:
             {"role": "system", "content": "Sos un experto en marketing digital para ventas por WhatsApp."},
             {"role": "user", "content": prompt}
         ],
-        temperature=0.95,   # 🔥 más creatividad
+        temperature=0.95,
         max_tokens=220
     )
 

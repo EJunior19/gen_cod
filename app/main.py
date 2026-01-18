@@ -1,3 +1,5 @@
+from dotenv import load_dotenv
+load_dotenv()
 from app.api_client import get_products
 from app.selector import seleccionar_productos
 from app.ai_generator import generar_texto
@@ -47,3 +49,8 @@ def build_data():
 
 # 🔥 ESTA LÍNEA ES LA CLAVE PARA GUNICORN
 app = iniciar_web(build_data)
+
+if __name__ == "__main__":
+    # Para desarrollo local
+    app.run(host="127.0.0.1", port=5000, debug=True)
+
