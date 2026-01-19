@@ -13,3 +13,5 @@ output/
 # Sistema
 .DS_Store
 Thumbs.db
+data/cache.json
+data/usados.json
