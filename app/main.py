@@ -9,10 +9,10 @@ from app.web_view import iniciar_web
 
 def build_data():
     # 1️⃣ Obtener productos de la API
-    productos_api = get_products(30)
+    productos_api = get_products(120)
 
     # 2️⃣ Seleccionar productos SIN repetir (cache 3 días)
-    seleccionados = seleccionar_productos(productos_api, 3)
+    seleccionados = seleccionar_productos(productos_api, 10, 3)  # 10 por vez, cache 3 días
 
     productos_finales = []
 

@@ -1,9 +1,9 @@
 from flask import Flask, render_template_string, send_file
-from app.flyer_generator import generar_flyer
 from PIL import Image, ImageDraw
 import requests
 from io import BytesIO
 import time
+import traceback
 
 # ⏱ intervalo de actualización automática (10 minutos)
 INTERVALO = 600
@@ -12,6 +12,7 @@ INTERVALO = 600
 def iniciar_web(data_provider):
     app = Flask(__name__)
 
+    # ===================== TEMPLATE =====================
     TEMPLATE = r"""
     <!doctype html>
     <html lang="es">
@@ -19,11 +20,7 @@ def iniciar_web(data_provider):
         <meta charset="utf-8">
         <title>Productos WhatsApp</title>
         <style>
-            body {
-                font-family: Arial, sans-serif;
-                background:#f3f4f6;
-                padding:20px;
-            }
+            body { font-family: Arial, sans-serif; background:#f3f4f6; padding:20px; }
 
             .img-box img{
               pointer-events: none;
@@ -31,114 +28,52 @@ def iniciar_web(data_provider):
               -webkit-user-drag: none;
             }
 
-            .topbar {
-                display:flex;
-                justify-content:space-between;
-                align-items:center;
-                margin-bottom:20px;
-            }
+            .topbar { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; }
             h1 { margin:0; font-size:26px; }
             .status { font-size:13px; color:#555; margin-top:6px; }
 
             button {
-                background:#1f2937;
-                color:white;
-                border:none;
-                padding:10px 18px;
-                border-radius:10px;
-                cursor:pointer;
-                font-size:14px;
+                background:#1f2937; color:white; border:none; padding:10px 18px;
+                border-radius:10px; cursor:pointer; font-size:14px;
             }
             button:hover { background:#111827; }
 
-            .grid {
-                display:grid;
-                grid-template-columns: repeat(auto-fit, minmax(380px,1fr));
-                gap:26px;
-            }
+            .grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(380px,1fr)); gap:26px; }
 
             .toast {
-              position: fixed;
-              bottom: 24px;
-              right: 24px;
-              background: #111827;
-              color: #e5e7eb;
-              padding: 12px 18px;
-              border-radius: 12px;
-              font-size: 14px;
+              position: fixed; bottom: 24px; right: 24px;
+              background: #111827; color: #e5e7eb;
+              padding: 12px 18px; border-radius: 12px; font-size: 14px;
               box-shadow: 0 10px 24px rgba(0,0,0,.25);
-              opacity: 0;
-              transform: translateY(10px);
+              opacity: 0; transform: translateY(10px);
               transition: all .25s ease;
-              z-index: 9999;
-              pointer-events: none;
+              z-index: 9999; pointer-events: none;
             }
-            .toast.show {
-              opacity: 1;
-              transform: translateY(0);
-            }
-            .toast.success {
-              border-left: 4px solid #22c55e;
-            }
-            .toast.error {
-              border-left: 4px solid #ef4444;
-            }
+            .toast.show { opacity: 1; transform: translateY(0); }
+            .toast.success { border-left: 4px solid #22c55e; }
+            .toast.error { border-left: 4px solid #ef4444; }
 
             .card {
-                position:relative;
-                background:white;
-                border-radius:18px;
-                padding:20px;
-                display:flex;
-                flex-direction:column;
+                position:relative; background:white; border-radius:18px;
+                padding:20px; display:flex; flex-direction:column;
                 box-shadow:0 10px 24px rgba(0,0,0,.10);
                 min-height:460px;
             }
             .sku {
-                position:absolute;
-                top:12px;
-                right:14px;
-                font-size:12px;
-                background:#e5e7eb;
-                padding:5px 10px;
-                border-radius:14px;
-                color:#374151;
+                position:absolute; top:12px; right:14px;
+                font-size:12px; background:#e5e7eb;
+                padding:5px 10px; border-radius:14px; color:#374151;
             }
             .img-box {
-                display:flex;
-                justify-content:center;
-                align-items:center;
-                background:#fafafa;
-                border-radius:14px;
-                height:230px;
-                margin-bottom:18px;
-                overflow:hidden;
+                display:flex; justify-content:center; align-items:center;
+                background:#fafafa; border-radius:14px;
+                height:230px; margin-bottom:18px; overflow:hidden;
             }
-            .img-box img {
-                max-width:100%;
-                max-height:210px;
-                object-fit:contain;
-            }
+            .img-box img { max-width:100%; max-height:210px; object-fit:contain; }
             h2 { font-size:18px; margin:0 0 10px 0; font-weight:bold; }
-            p {
-                font-size:14px;
-                color:#444;
-                line-height:1.5;
-                margin:0 0 16px 0;
-                white-space:pre-line;
-            }
-            .precio {
-                font-size:26px;
-                font-weight:bold;
-                color:#0a8f08;
-                margin-top:auto;
-            }
-            .acciones {
-                display:flex;
-                gap:12px;
-                margin-top:16px;
-                flex-wrap:wrap;
-            }
+            p { font-size:14px; color:#444; line-height:1.5; margin:0 0 16px 0; white-space:pre-line; }
+            .precio { font-size:26px; font-weight:bold; color:#0a8f08; margin-top:auto; }
+            .acciones { display:flex; gap:12px; margin-top:16px; flex-wrap:wrap; }
         </style>
     </head>
     <body>
@@ -160,7 +95,8 @@ def iniciar_web(data_provider):
                   <div class="sku">SKU: {{ p.sku }}</div>
 
                   <div class="img-box">
-                      <img src="/img/{{ loop.index0 }}" alt="producto">
+                      <!-- 👇 importante: evitar cache -->
+                      <img src="/img/{{ loop.index0 }}?t={{ last_update }}" alt="producto">
                   </div>
 
                   <h2>{{ p.nombre }}</h2>
@@ -177,13 +113,17 @@ def iniciar_web(data_provider):
                         Copiar imagen
                       </button>
 
+                      {# Si no querés, queda desactivado:
                       <button type="button" onclick="copiarTodo(event, {{ loop.index0 }}, {{ p.texto_whatsapp | tojson }})">
                         Copiar TODO
                       </button>
+                      #}
 
+                      {# Si no te interesa flyer, dejalo apagado:
                       <button type="button" onclick="window.open('/flyer/{{ loop.index0 }}?t=' + Date.now(), '_blank')">
                         🖼 Generar flyer
                       </button>
+                      #}
                   </div>
               </div>
               {% endfor %}
@@ -208,9 +148,7 @@ def iniciar_web(data_provider):
             t.classList.add("show");
 
             clearTimeout(t._timer);
-            t._timer = setTimeout(() => {
-              t.classList.remove("show");
-            }, 1200);
+            t._timer = setTimeout(() => t.classList.remove("show"), 1200);
           }
 
           // ===== Countdown =====
@@ -221,8 +159,8 @@ def iniciar_web(data_provider):
             const now = Math.floor(Date.now() / 1000);
             let restante = (lastUpdate + intervalo) - now;
             if (restante < 0) restante = 0;
-            document.getElementById("countdown").innerText =
-              Math.floor(restante / 60) + "m " + (restante % 60) + "s";
+            const el = document.getElementById("countdown");
+            if (el) el.innerText = Math.floor(restante / 60) + "m " + (restante % 60) + "s";
           }
           setInterval(updateCountdown, 1000);
           updateCountdown();
@@ -245,7 +183,7 @@ def iniciar_web(data_provider):
               });
           }
 
-          // ===== Convertir imagen a PNG (si viene JPEG/WebP) =====
+          // ===== Convertir a PNG =====
           function convertirBlobAPng(blob) {
             return new Promise((resolve, reject) => {
               const img = new Image();
@@ -296,7 +234,7 @@ def iniciar_web(data_provider):
 
               const blob = await res.blob();
 
-              // Chromium en Linux suele aceptar mejor PNG
+              // Siempre PNG para compatibilidad
               let pngBlob = blob;
               if (blob.type !== "image/png") {
                 pngBlob = await convertirBlobAPng(blob);
@@ -312,46 +250,13 @@ def iniciar_web(data_provider):
               showToast("No se pudo copiar la imagen", "error");
             }
           }
-
-          // ===== Copiar TODO (imagen + texto) =====
-          async function copiarTodo(ev, idx, texto) {
-            ev.preventDefault();
-            ev.stopPropagation();
-
-            if (!navigator.clipboard || !window.ClipboardItem) {
-              showToast("No puedo copiar imágenes", "error");
-              return;
-            }
-
-            try {
-              const url = `/img/${idx}?t=${Date.now()}`;
-              const res = await fetch(url, { cache: "no-store" });
-              if (!res.ok) throw new Error("fetch failed");
-
-              const blob = await res.blob();
-              let pngBlob = blob;
-              if (blob.type !== "image/png") {
-                pngBlob = await convertirBlobAPng(blob);
-              }
-
-              await navigator.clipboard.write([
-                new ClipboardItem({ "image/png": pngBlob })
-              ]);
-
-              await navigator.clipboard.writeText(texto);
-
-              showToast("Imagen + texto copiados");
-            } catch (e) {
-              console.error(e);
-              showToast("No se pudo copiar TODO", "error");
-            }
-          }
         </script>
 
     </body>
     </html>
     """
 
+    # ===================== STATE =====================
     state = {
         "productos": [],
         "imagenes_bin": [],
@@ -359,6 +264,15 @@ def iniciar_web(data_provider):
         "last_update": int(time.time())
     }
 
+    # ===================== NO-CACHE GLOBAL =====================
+    @app.after_request
+    def no_cache(resp):
+        resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        resp.headers["Pragma"] = "no-cache"
+        resp.headers["Expires"] = "0"
+        return resp
+
+    # ===================== PLACEHOLDER =====================
     def placeholder_png(texto="SIN IMAGEN"):
         img = Image.new("RGB", (900, 600), "#f3f4f6")
         d = ImageDraw.Draw(img)
@@ -369,8 +283,18 @@ def iniciar_web(data_provider):
         bio.seek(0)
         return bio
 
+    # ===================== REFRESH DATA =====================
     def refresh_data():
-        productos, _ = data_provider()
+        try:
+            productos, meta = data_provider()
+            app.logger.warning("data_provider OK -> productos=%s meta=%s",
+                               len(productos) if productos else 0,
+                               meta if meta is not None else "")
+        except Exception as e:
+            app.logger.error("data_provider FALLÓ: %s", e)
+            app.logger.error(traceback.format_exc())
+            productos = []
+
         state["productos"] = productos or []
         state["imagenes_bin"] = []
         state["imagenes_type"] = []
@@ -384,11 +308,7 @@ def iniciar_web(data_provider):
                 continue
 
             try:
-                r = requests.get(
-                    url,
-                    timeout=20,
-                    headers={"User-Agent": "Mozilla/5.0"},
-                )
+                r = requests.get(url, timeout=20, headers={"User-Agent": "Mozilla/5.0"})
                 r.raise_for_status()
                 ctype = (r.headers.get("Content-Type") or "").split(";")[0].strip()
                 if not ctype.startswith("image/"):
@@ -396,10 +316,12 @@ def iniciar_web(data_provider):
 
                 state["imagenes_bin"].append(r.content)
                 state["imagenes_type"].append(ctype or "image/jpeg")
-            except Exception:
+            except Exception as e:
+                app.logger.warning("No se pudo bajar imagen %s: %s", url, e)
                 state["imagenes_bin"].append(b"")
                 state["imagenes_type"].append("")
 
+    # ===================== ROUTES =====================
     @app.route("/")
     def index():
         if not state["productos"]:
@@ -419,32 +341,24 @@ def iniciar_web(data_provider):
 
     @app.route("/img/<int:i>")
     def img(i):
+        # Validar índice contra productos reales
         if i < 0 or i >= len(state["productos"]):
             return send_file(placeholder_png("INDICE INVALIDO"), mimetype="image/png")
 
-        data = state["imagenes_bin"][i] if i < len(state["imagenes_bin"]) else b""
-        mime = state["imagenes_type"][i] if i < len(state["imagenes_type"]) else ""
+        # Asegurar que arrays de imagen estén alineados
+        if i >= len(state["imagenes_bin"]):
+            # Si por alguna razón no se cargaron, intentamos refresh
+            refresh_data()
+            if i >= len(state["imagenes_bin"]):
+                return send_file(placeholder_png("SIN IMAGEN"), mimetype="image/png")
+
+        data = state["imagenes_bin"][i] or b""
+        mime = state["imagenes_type"][i] or ""
 
         if not data:
             nombre = state["productos"][i].get("nombre", "SIN IMAGEN")
             return send_file(placeholder_png(nombre[:40]), mimetype="image/png")
 
         return send_file(BytesIO(data), mimetype=mime or "image/jpeg")
-
-    @app.route("/flyer/<int:i>")
-    def flyer(i):
-        if i < 0 or i >= len(state["productos"]):
-            return send_file(placeholder_png("INDICE INVALIDO"), mimetype="image/png")
-
-        producto = state["productos"][i]
-
-        path = generar_flyer({
-            "nombre": producto.get("nombre", ""),
-            "descripcion": producto.get("descripcion", ""),
-            "precio": producto.get("precio", ""),
-            "imagen": producto.get("imagen", "")
-        }, i)
-
-        return send_file(path, mimetype="image/png")
 
     return app
